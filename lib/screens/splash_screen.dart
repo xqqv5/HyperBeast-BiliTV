@@ -30,20 +30,40 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _initializeApp() async {
     List<Video> preloadedVideos = [];
+    bool videoInitSuccess = false;
 
     // 1. 初始化视频播放器 (尽早开始，与服务初始化并行)
     _videoController = VideoPlayerController.asset('assets/icons/startup.mp4');
     _videoCompleter = Completer<void>();
 
-    final videoInitFuture = _videoController!.initialize().then((_) {
-      _videoController!.setVolume(0); // 无声
+    // 视频初始化 Future，添加超时和错误处理
+    final videoInitFuture = () async {
+      try {
+        await _videoController!.initialize().timeout(
+          const Duration(seconds: 5),
+          onTimeout: () {
+            throw TimeoutException('视频初始化超时');
+          },
+        );
+        _videoController!.setVolume(0); // 无声
 
-      // 添加播放完成监听器
-      _videoController!.addListener(_onVideoPositionChanged);
+        // 添加播放完成监听器
+        _videoController!.addListener(_onVideoPositionChanged);
 
-      _videoController!.play();
-      if (mounted) setState(() {});
-    });
+        _videoController!.play();
+        videoInitSuccess = true;
+        if (mounted) setState(() {});
+      } catch (e) {
+        debugPrint('Video initialization failed: $e');
+        // 视频初始化失败，立即完成 completer，跳过动画
+        if (!_videoCompleter!.isCompleted) {
+          _videoCompleter!.complete();
+        }
+        // 清理失败的控制器
+        _videoController?.dispose();
+        _videoController = null;
+      }
+    }();
 
     // 3. 初始化基础服务 (与视频初始化并行)
     await Future.wait([
@@ -62,8 +82,8 @@ class _SplashScreenState extends State<SplashScreen> {
       });
     }
 
-    // 检查是否禁用了启动动画
-    if (!SettingsService.splashAnimationEnabled) {
+    // 检查是否禁用了启动动画 或 视频初始化失败
+    if (!SettingsService.splashAnimationEnabled || !videoInitSuccess) {
       _videoController?.removeListener(_onVideoPositionChanged);
       _videoController?.dispose();
       _videoController = null;

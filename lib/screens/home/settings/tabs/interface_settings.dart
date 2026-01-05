@@ -98,7 +98,7 @@ class _InterfaceSettingsState extends State<InterfaceSettings> {
         // 播放器时间显示开关
         SettingToggleRow(
           label: '总是显示时间',
-          subtitle: '所有界面右上角总是显示当前时间',
+          subtitle: '播放界面右上角总是显示当前时间',
           value: SettingsService.alwaysShowPlayerTime,
           autofocus: false,
           onMoveUp: null, // 允许自然向上导航到上一项
